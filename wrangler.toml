@@ -1,0 +1,12 @@
+name = "kiara-bot"
+main = "./server.js"
+compatibility_date="2023-05-18"
+
+[observability]
+enabled = true
+head_sampling_rate = 1 # optional. default = 1.
+
+# [secrets]
+# DISCORD_TOKEN
+# DISCORD_PUBLIC_KEY
+# DISCORD_APPLICATION_ID
