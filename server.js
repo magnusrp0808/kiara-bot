@@ -7,9 +7,12 @@ import {
   InteractionResponseType,
   InteractionType,
   verifyKey,
+  InteractionResponseFlags
 } from 'discord-interactions';
 
-const roleManagerCommand = require('./commands/roleManager');
+import { DiscordClient } from './client'
+
+const roleManagerCommand = require('./commands/managers/roleManager');
 
 class JsonResponse extends Response {
   constructor(body, init) {
@@ -46,8 +49,6 @@ router.post('/', async (request, env) => {
         return new Response('Bad request signature.', { status: 401 });
     }
 
-    console.log(interaction.type)
-
     if (interaction.type === InteractionType.PING) {
         // The `PING` message is used during the initial webhook handshake, and is
         // required to configure the webhook in the developer portal.
@@ -58,7 +59,7 @@ router.post('/', async (request, env) => {
         // Most user commands will come as `APPLICATION_COMMAND`.
         switch (interaction.data.name.toLowerCase()) {   
             case roleManagerCommand.data.name:
-                return await roleManagerCommand.execute(interaction, database);
+                return await roleManagerCommand.execute(interaction);
             default:
                 return new JsonResponse({ error: 'Unknown Type' }, { status: 400 });
         }
@@ -71,6 +72,21 @@ router.post('/', async (request, env) => {
         }
     } else if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
         switch (interaction.data.custom_id.toLowerCase()) {   
+            case "confirm":
+                const response = await interaction.client.setRoleOnUser(interaction.guild_id, interaction.member.user.id, '1430569586914230402');
+                
+                const content = response.ok 
+                    ? "✅ Thanks for confirming and welcome to the server!" 
+                    : "❌ Something went wrong when trying to give you permissions to the server. Try again or contact a mod.";
+            
+                return new JsonResponse({
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: {
+                        content: content, 
+                        allowed_mentions: { parse: [] },
+                        flags: InteractionResponseFlags.EPHEMERAL
+                    }
+                });
             default:
                 return new JsonResponse({ error: 'Unknown Type' }, { status: 400 });
         }
@@ -95,18 +111,22 @@ async function verifyDiscordRequest(request, env) {
     }
 
     let interaction = JSON.parse(body);
+    
     interaction.reply = function(data) {
         return new JsonResponse({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: data,
         });
     }
+
     interaction.respond = function(choices) {
         return new JsonResponse({
             type: InteractionResponseType.APPLICATION_COMMAND_AUTOCOMPLETE_RESULT,
             data: { choices: choices },
         });
     }
+
+    interaction.client = new DiscordClient(env.DISCORD_TOKEN);
 
     return { interaction: interaction, isValid: true };
 }
